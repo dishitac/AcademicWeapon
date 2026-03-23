@@ -1,0 +1,31 @@
+# Python virtual environment — never commit this
+venv/
+.venv/
+env/
+
+# Python bytecode — compiled files Python generates automatically
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Environment variables — your secrets live here, never commit
+.env
+.env.local
+.env.production
+
+# OS files
+.DS_Store           # macOS folder metadata
+Thumbs.db           # Windows thumbnail cache
+
+# Editor folders
+.vscode/
+.idea/
+
+# pytest cache
+.pytest_cache/
+
+# Distribution / build artifacts
+dist/
+build/
+*.egg-info/
