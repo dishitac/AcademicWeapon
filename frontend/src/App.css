@@ -181,6 +181,42 @@
 .task-table input:hover { border-color: var(--border); }
 .task-table input:focus { outline: none; border-color: var(--accent); background: var(--bg); }
 
+/* ---------- Table controls (sort / filter / group) ---------- */
+.table-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.table-controls label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+.table-controls select {
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-h);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+.group-toggle { cursor: pointer; }
+.group-row td {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--accent);
+  background: var(--accent-bg);
+  padding: 6px 10px;
+}
+
 /* Read-only cells (view mode) — match the input padding so rows don't jump */
 .cell-text { display: inline-block; padding: 7px 8px; color: var(--text-h); }
 .cell-empty { display: inline-block; padding: 7px 8px; color: var(--text); opacity: .5; }
