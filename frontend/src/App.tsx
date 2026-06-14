@@ -6,6 +6,10 @@ import { buildWorkload } from "./lib/workload";
 import { buildCalendar, defaultMonth } from "./lib/calendar";
 import { computeProgress } from "./lib/progress";
 
+// Backend base URL. In production we set VITE_API_URL (Vercel env var) to the
+// deployed backend; locally it falls back to the dev server on :4000.
+const API = import.meta.env.VITE_API_URL ?? "http://localhost:4000";
+
 type HealthResponse = { status: string };
 
 // --- pure sort/group helpers ---
@@ -56,7 +60,7 @@ function App() {
   const [grouped, setGrouped] = useState(false);
 
   useEffect(() => {
-    fetch("http://localhost:4000/api/health")
+    fetch(`${API}/api/health`)
       .then((res) => res.json())
       .then(setHealth)
       .catch((err) => setError(err.message));
@@ -83,7 +87,7 @@ function App() {
       try {
         const fd = new FormData();
         fd.append("file", f); // key "file" must match upload.single("file") on the backend
-        const res = await fetch("http://localhost:4000/api/parse-pdf", {
+        const res = await fetch(`${API}/api/parse-pdf`, {
           method: "POST",
           body: fd,
         });
