@@ -234,6 +234,23 @@
   border-radius: 7px;
 }
 
+.col-check { width: 30px; text-align: center; }
+.col-check input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent); }
+
+/* Completed tasks: dim + strike the text, but keep the checkbox readable */
+.row-done { opacity: .55; }
+.row-done .cell-text,
+.row-done .wk-course { text-decoration: line-through; }
+
+/* ---------- Progress bars ---------- */
+.prog-list { display: flex; flex-direction: column; gap: 14px; }
+.prog-row { display: flex; flex-direction: column; gap: 5px; }
+.prog-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.prog-name { font-weight: 600; font-size: 14px; color: var(--text-h); }
+.prog-stat { font-size: 13px; color: var(--text); }
+.prog-bar { height: 9px; border-radius: 999px; background: var(--social-bg); overflow: hidden; }
+.prog-fill { height: 100%; border-radius: 999px; background: var(--accent); transition: width .25s ease; }
+
 .col-del { width: 36px; text-align: center; }
 .icon-btn {
   border: none;

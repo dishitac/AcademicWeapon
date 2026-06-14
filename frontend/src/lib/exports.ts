@@ -10,6 +10,7 @@ export type Task = {
   recurring?: string;
   effortHours?: number;    // estimated work; user can override
   suggestedStart?: string; // filled in by the scheduler
+  done?: boolean;          // checked off by the student
 };
 
 // The 3-step browser "download a string as a file" trick.

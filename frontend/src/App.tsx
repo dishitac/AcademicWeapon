@@ -4,6 +4,7 @@ import { downloadFile, tasksToCSV, tasksToICS, type Task } from "./lib/exports";
 import { scheduleTasks } from "./lib/schedule";
 import { buildWorkload } from "./lib/workload";
 import { buildCalendar, defaultMonth } from "./lib/calendar";
+import { computeProgress } from "./lib/progress";
 
 type HealthResponse = { status: string };
 
@@ -172,9 +173,23 @@ function App() {
     });
   }, [tasks, filterCourse, sortKey]);
 
+  // Check a task off / on (works in view mode too — it's an action, not editing).
+  const toggleDone = (id: string) =>
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t)));
+
+  const courseProgress = useMemo(() => computeProgress(tasks), [tasks]);
+
   // One task row — used by both the flat and grouped views.
   const renderRow = (t: Task) => (
-    <tr key={t.id}>
+    <tr key={t.id} className={t.done ? "row-done" : ""}>
+      <td className="col-check">
+        <input
+          type="checkbox"
+          checked={!!t.done}
+          onChange={() => toggleDone(t.id)}
+          title="Mark done"
+        />
+      </td>
       <td className="col-course">
         {editing ? (
           <input value={t.course ?? ""} placeholder="CS 246"
@@ -333,7 +348,7 @@ function App() {
                 <table className="task-table">
                   <thead>
                     <tr>
-                      <th>Course</th><th>Title</th><th>Weight</th><th>Deadline</th>
+                      <th></th><th>Course</th><th>Title</th><th>Weight</th><th>Deadline</th>
                       <th>Recurring</th><th>Start by</th><th></th>
                     </tr>
                   </thead>
@@ -342,7 +357,7 @@ function App() {
                       ? groupByCourse(visible).map((g) => (
                           <Fragment key={g.course || "none"}>
                             <tr className="group-row">
-                              <td colSpan={7}>{g.course || "No course"}</td>
+                              <td colSpan={8}>{g.course || "No course"}</td>
                             </tr>
                             {g.tasks.map(renderRow)}
                           </Fragment>
@@ -354,6 +369,25 @@ function App() {
             </>
           )}
         </section>
+
+        {tasks.length > 0 && (
+          <section className="card">
+            <h2>Progress</h2>
+            <div className="prog-list">
+              {courseProgress.map((p) => (
+                <div key={p.course || "none"} className="prog-row">
+                  <div className="prog-head">
+                    <span className="prog-name">{p.course || "No course"}</span>
+                    <span className="prog-stat">{p.done}/{p.total} done · {p.pct}%</span>
+                  </div>
+                  <div className="prog-bar">
+                    <div className="prog-fill" style={{ width: `${p.pct}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
 
         {hasDates && (
           <section className="card">
