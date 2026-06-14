@@ -26,6 +26,7 @@ function App() {
     }
   });
   const [loading, setLoading] = useState(false);       // disable button while parsing
+  const [editing, setEditing] = useState(false);       // view (read-only) vs. edit mode for the table
 
   useEffect(() => {
     fetch("http://localhost:4000/api/health")
@@ -100,6 +101,7 @@ function App() {
   };
 
   const addTask = () => {
+    setEditing(true); // adding a task drops you straight into edit mode
     setTasks((prev) => [...prev, { id: crypto.randomUUID(), title: "New task" }]);
   };
 
@@ -180,6 +182,13 @@ function App() {
           <div className="card-head">
             <h2>Tasks <span className="count">{tasks.length}</span></h2>
             <div className="toolbar">
+              <button
+                className={`btn ${editing ? "btn-primary" : "btn-ghost"}`}
+                onClick={() => setEditing((e) => !e)}
+                disabled={tasks.length === 0}
+              >
+                {editing ? "✓ Done" : "✎ Edit"}
+              </button>
               <button className="btn btn-ghost" onClick={addTask}>+ Add task</button>
               <button className="btn btn-ghost" onClick={suggestSchedule} disabled={tasks.length === 0}>Suggest start dates</button>
               <button className="btn btn-ghost" onClick={onDownloadCSV} disabled={tasks.length === 0}>CSV</button>
@@ -206,30 +215,54 @@ function App() {
                   {tasks.map((t) => (
                     <tr key={t.id}>
                       <td className="col-course">
-                        <input value={t.course ?? ""} placeholder="CS 246"
-                          onChange={(e) => updateTask(t.id, "course", e.target.value)} />
+                        {editing ? (
+                          <input value={t.course ?? ""} placeholder="CS 246"
+                            onChange={(e) => updateTask(t.id, "course", e.target.value)} />
+                        ) : t.course ? (
+                          <span className="wk-course">{t.course}</span>
+                        ) : (
+                          <span className="cell-empty">—</span>
+                        )}
                       </td>
                       <td>
-                        <input value={t.title}
-                          onChange={(e) => updateTask(t.id, "title", e.target.value)} />
+                        {editing ? (
+                          <input value={t.title}
+                            onChange={(e) => updateTask(t.id, "title", e.target.value)} />
+                        ) : (
+                          <span className="cell-text">{t.title}</span>
+                        )}
                       </td>
                       <td className="col-num">
-                        <input type="number" value={t.weight ?? ""}
-                          onChange={(e) => updateTask(t.id, "weight", e.target.value)} />
+                        {editing ? (
+                          <input type="number" value={t.weight ?? ""}
+                            onChange={(e) => updateTask(t.id, "weight", e.target.value)} />
+                        ) : (
+                          <span className="cell-text">{t.weight != null ? `${t.weight}%` : "—"}</span>
+                        )}
                       </td>
                       <td>
-                        <input value={t.deadline ?? ""} placeholder="YYYY-MM-DD"
-                          onChange={(e) => updateTask(t.id, "deadline", e.target.value)} />
+                        {editing ? (
+                          <input value={t.deadline ?? ""} placeholder="YYYY-MM-DD"
+                            onChange={(e) => updateTask(t.id, "deadline", e.target.value)} />
+                        ) : (
+                          <span className="cell-text">{t.deadline ?? "—"}</span>
+                        )}
                       </td>
                       <td>
-                        <input value={t.recurring ?? ""} placeholder="—"
-                          onChange={(e) => updateTask(t.id, "recurring", e.target.value)} />
+                        {editing ? (
+                          <input value={t.recurring ?? ""} placeholder="—"
+                            onChange={(e) => updateTask(t.id, "recurring", e.target.value)} />
+                        ) : (
+                          <span className="cell-text">{t.recurring ?? "—"}</span>
+                        )}
                       </td>
                       <td className="col-start">
                         {t.suggestedStart ? <span className="badge">{t.suggestedStart}</span> : "—"}
                       </td>
                       <td className="col-del">
-                        <button className="icon-btn" onClick={() => deleteTask(t.id)} title="Delete">✕</button>
+                        {editing && (
+                          <button className="icon-btn" onClick={() => deleteTask(t.id)} title="Delete">✕</button>
+                        )}
                       </td>
                     </tr>
                   ))}
