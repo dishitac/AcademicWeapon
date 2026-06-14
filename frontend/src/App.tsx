@@ -3,7 +3,7 @@ import "./App.css";
 import { downloadFile, tasksToCSV, tasksToICS, type Task } from "./lib/exports";
 import { scheduleTasks } from "./lib/schedule";
 import { buildWorkload } from "./lib/workload";
-import { buildTimeline } from "./lib/timeline";
+import { buildCalendar, defaultMonth } from "./lib/calendar";
 
 type HealthResponse = { status: string };
 
@@ -115,7 +115,15 @@ function App() {
   // between renders so we don't rebuild it on every keystroke elsewhere).
   const workload = useMemo(() => buildWorkload(tasks), [tasks]);
   const crunchCount = workload.filter((w) => w.level === "crunch").length;
-  const timeline = useMemo(() => buildTimeline(tasks), [tasks]);
+  // Which month the calendar is showing. Starts at the earliest deadline.
+  const [view, setView] = useState(() => defaultMonth(tasks));
+  const calendar = useMemo(() => buildCalendar(tasks, view.year, view.month), [tasks, view]);
+  const hasDates = workload.length > 0; // workload buckets only exist for dated tasks
+
+  const prevMonth = () =>
+    setView((v) => (v.month === 0 ? { year: v.year - 1, month: 11 } : { year: v.year, month: v.month - 1 }));
+  const nextMonth = () =>
+    setView((v) => (v.month === 11 ? { year: v.year + 1, month: 0 } : { year: v.year, month: v.month + 1 }));
 
   return (
     <div className="app">
@@ -231,50 +239,43 @@ function App() {
           )}
         </section>
 
-        {!timeline.empty && (
+        {hasDates && (
           <section className="card">
             <div className="card-head">
-              <h2>Semester timeline</h2>
+              <h2>Calendar</h2>
               {crunchCount > 0 && (
                 <span className="warn-chip">⚠️ {crunchCount} crunch week{crunchCount > 1 ? "s" : ""}</span>
               )}
             </div>
 
-            <div className="timeline">
-              {/* Month tick labels across the top, positioned by percentage */}
-              <div className="tl-axis">
-                {timeline.months.map((m, i) => (
-                  <span key={i} className="tl-month" style={{ left: `${m.leftPct}%` }}>{m.label}</span>
-                ))}
-              </div>
+            <div className="cal-nav">
+              <button className="btn btn-ghost" onClick={prevMonth} aria-label="Previous month">◀</button>
+              <span className="cal-title">{calendar.label}</span>
+              <button className="btn btn-ghost" onClick={nextMonth} aria-label="Next month">▶</button>
+            </div>
 
-              {timeline.bars.map((b) => (
-                <div key={b.id} className="tl-row">
-                  <div className="tl-label" title={`${b.course} ${b.title}`}>
-                    {b.course && <span className="wk-course">{b.course}</span>}
-                    <span className="tl-title">{b.title}</span>
-                  </div>
-                  <div className="tl-track">
-                    {/* faint vertical gridlines at month boundaries */}
-                    {timeline.months.map((m, i) => (
-                      <span key={i} className="tl-grid" style={{ left: `${m.leftPct}%` }} />
+            <div className="cal-grid">
+              {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+                <div key={d} className="cal-dow">{d}</div>
+              ))}
+              {/* Flatten weeks into a single stream of cells; the 7-col grid wraps them. */}
+              {calendar.weeks.flat().map((d) => (
+                <div key={d.date} className={`cal-cell cal-${d.level}${d.inMonth ? "" : " cal-out"}`}>
+                  <div className="cal-daynum">{d.day}</div>
+                  <div className="cal-chips">
+                    {d.tasks.map((t) => (
+                      <div
+                        key={t.id}
+                        className="cal-chip"
+                        title={`${t.course ?? ""} ${t.title}${t.weight != null ? ` (${t.weight}%)` : ""}`}
+                      >
+                        {t.course ? `${t.course}: ` : ""}{t.title}
+                      </div>
                     ))}
-                    <div
-                      className="tl-bar"
-                      style={{ left: `${b.leftPct}%`, width: `${b.widthPct}%` }}
-                      title={`Start ${b.startLabel} → Due ${b.dueLabel}${b.weight != null ? ` (${b.weight}%)` : ""}`}
-                    >
-                      <span className="tl-due" />
-                    </div>
                   </div>
                 </div>
               ))}
             </div>
-
-            <p className="tl-legend">
-              <span className="tl-swatch" /> suggested work period · ● due date — click
-              “Suggest start dates” above to use exact scheduled starts
-            </p>
           </section>
         )}
       </main>
