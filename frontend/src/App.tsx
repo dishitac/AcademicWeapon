@@ -1,0 +1,271 @@
+import { useEffect, useMemo, useState } from "react";
+import "./App.css";
+import { downloadFile, tasksToCSV, tasksToICS, type Task } from "./lib/exports";
+import { scheduleTasks } from "./lib/schedule";
+import { buildWorkload } from "./lib/workload";
+
+type HealthResponse = { status: string };
+
+
+function App() {
+  const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // New state for the upload feature:
+  const [files, setFiles] = useState<File[]>([]); // the chosen PDFs (one or more)
+  const [progress, setProgress] = useState(""); // "Parsing X (2/3)…" status during a batch
+  // Lazy initializer: runs ONCE on first render, loading any saved tasks from
+  // localStorage so your work survives a refresh.
+  const [tasks, setTasks] = useState<Task[]>(() => {
+    try {
+      const saved = localStorage.getItem("aw_tasks");
+      return saved ? (JSON.parse(saved) as Task[]) : [];
+    } catch {
+      return []; // corrupt/missing data -> start empty instead of crashing
+    }
+  });
+  const [loading, setLoading] = useState(false);       // disable button while parsing
+
+  useEffect(() => {
+    fetch("http://localhost:4000/api/health")
+      .then((res) => res.json())
+      .then(setHealth)
+      .catch((err) => setError(err.message));
+  }, []);
+
+  // Persist tasks to localStorage every time they change. The [tasks] dependency
+  // means this effect re-runs after any add/edit/delete/schedule.
+  useEffect(() => {
+    localStorage.setItem("aw_tasks", JSON.stringify(tasks));
+  }, [tasks]);
+
+  const uploadFiles = async () => {
+    if (files.length === 0) return alert("Pick at least one PDF first");
+    setLoading(true);
+    setError(null);
+    const failed: string[] = [];
+
+    // Send the files to the backend ONE AT A TIME. The `await` inside the loop
+    // pauses until each file finishes before starting the next (sequential),
+    // which keeps us under the free LLM's rate limit and gives clean progress.
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      setProgress(`Parsing ${f.name} (${i + 1}/${files.length})…`);
+      try {
+        const fd = new FormData();
+        fd.append("file", f); // key "file" must match upload.single("file") on the backend
+        const res = await fetch("http://localhost:4000/api/parse-pdf", {
+          method: "POST",
+          body: fd,
+        });
+        const data = await res.json();
+        if (data.error) throw new Error(data.error);
+        // Append each file's tasks as soon as they come back.
+        setTasks((prev) => [...prev, ...(data.tasks ?? [])]);
+      } catch {
+        failed.push(f.name); // one bad PDF shouldn't abort the whole batch
+      }
+    }
+
+    setProgress("");
+    setLoading(false);
+    if (failed.length) setError(`Couldn't parse: ${failed.join(", ")}`);
+  };
+
+  const onDownloadCSV = () => downloadFile(tasksToCSV(tasks), "tasks.csv", "text/csv");
+
+  const onDownloadICS = () => {
+    const ics = tasksToICS(tasks);
+    if (!ics) return alert("No tasks have a calendar-ready date yet.");
+    downloadFile(ics, "deadlines.ics", "text/calendar");
+  };
+
+    // Edit one field of one task, immutably.
+  const updateTask = (id: string, field: keyof Task, value: string) => {
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              // weight is a number; everything else is a string (or cleared to undefined)
+              [field]:
+                field === "weight"
+                  ? value === "" ? undefined : Number(value)
+                  : value || undefined,
+            }
+          : t
+      )
+    );
+  };
+
+  const addTask = () => {
+    setTasks((prev) => [...prev, { id: crypto.randomUUID(), title: "New task" }]);
+  };
+
+  const deleteTask = (id: string) => {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+  };
+
+  const suggestSchedule = () => setTasks((prev) => scheduleTasks(prev));
+
+  const clearAll = () => setTasks([]);
+
+  // Recompute weekly workload only when tasks change (useMemo caches the result
+  // between renders so we don't rebuild it on every keystroke elsewhere).
+  const workload = useMemo(() => buildWorkload(tasks), [tasks]);
+  const crunchCount = workload.filter((w) => w.level === "crunch").length;
+
+  return (
+    <div className="app">
+      <header className="topbar">
+        <div className="brand">
+          <span className="brand-mark">📚</span> AcademicWeapon
+        </div>
+        {health ? (
+          <span className="pill pill-ok"><span className="dot" /> Backend online</span>
+        ) : error ? (
+          <span className="pill pill-bad"><span className="dot" /> Backend offline</span>
+        ) : (
+          <span className="pill"><span className="dot" /> Connecting…</span>
+        )}
+      </header>
+
+      <main className="container">
+        <section className="card">
+          <h2>Upload syllabus PDFs</h2>
+          <p className="muted">
+            Drop in one or more course syllabi — we'll pull out the graded
+            components, weights, and deadlines.
+          </p>
+
+          <label className="dropzone">
+            <input
+              type="file"
+              accept="application/pdf"
+              multiple
+              onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+            />
+            <span className="dropzone-icon">⬆️</span>
+            <span className="dropzone-text">
+              {files.length === 0
+                ? "Click to choose PDF files"
+                : `${files.length} file${files.length > 1 ? "s" : ""} selected`}
+            </span>
+          </label>
+
+          <div className="actions">
+            <button
+              className="btn btn-primary"
+              onClick={uploadFiles}
+              disabled={loading || files.length === 0}
+            >
+              {loading ? "Parsing…" : `Upload & extract${files.length ? ` (${files.length})` : ""}`}
+            </button>
+          </div>
+          {progress && <p className="progress">{progress}</p>}
+          {error && <p className="error-text">{error}</p>}
+        </section>
+
+        <section className="card">
+          <div className="card-head">
+            <h2>Tasks <span className="count">{tasks.length}</span></h2>
+            <div className="toolbar">
+              <button className="btn btn-ghost" onClick={addTask}>+ Add task</button>
+              <button className="btn btn-ghost" onClick={suggestSchedule} disabled={tasks.length === 0}>Suggest start dates</button>
+              <button className="btn btn-ghost" onClick={onDownloadCSV} disabled={tasks.length === 0}>CSV</button>
+              <button className="btn btn-ghost" onClick={onDownloadICS} disabled={tasks.length === 0}>.ics</button>
+              <button className="btn btn-danger" onClick={clearAll} disabled={tasks.length === 0}>Clear</button>
+            </div>
+          </div>
+
+          {tasks.length === 0 ? (
+            <div className="empty">
+              <span className="empty-icon">🗓️</span>
+              <p>No tasks yet — upload a syllabus or add one manually.</p>
+            </div>
+          ) : (
+            <div className="table-wrap">
+              <table className="task-table">
+                <thead>
+                  <tr>
+                    <th>Course</th><th>Title</th><th>Weight</th><th>Deadline</th>
+                    <th>Recurring</th><th>Start by</th><th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tasks.map((t) => (
+                    <tr key={t.id}>
+                      <td className="col-course">
+                        <input value={t.course ?? ""} placeholder="CS 246"
+                          onChange={(e) => updateTask(t.id, "course", e.target.value)} />
+                      </td>
+                      <td>
+                        <input value={t.title}
+                          onChange={(e) => updateTask(t.id, "title", e.target.value)} />
+                      </td>
+                      <td className="col-num">
+                        <input type="number" value={t.weight ?? ""}
+                          onChange={(e) => updateTask(t.id, "weight", e.target.value)} />
+                      </td>
+                      <td>
+                        <input value={t.deadline ?? ""} placeholder="YYYY-MM-DD"
+                          onChange={(e) => updateTask(t.id, "deadline", e.target.value)} />
+                      </td>
+                      <td>
+                        <input value={t.recurring ?? ""} placeholder="—"
+                          onChange={(e) => updateTask(t.id, "recurring", e.target.value)} />
+                      </td>
+                      <td className="col-start">
+                        {t.suggestedStart ? <span className="badge">{t.suggestedStart}</span> : "—"}
+                      </td>
+                      <td className="col-del">
+                        <button className="icon-btn" onClick={() => deleteTask(t.id)} title="Delete">✕</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+
+        {workload.length > 0 && (
+          <section className="card">
+            <div className="card-head">
+              <h2>Workload</h2>
+              {crunchCount > 0 && (
+                <span className="warn-chip">⚠️ {crunchCount} crunch week{crunchCount > 1 ? "s" : ""}</span>
+              )}
+            </div>
+            <div className="weeks">
+              {workload.map((w) => (
+                <div key={w.weekStart} className={`week week-${w.level}`}>
+                  <div className="week-head">
+                    <span className="week-label">{w.label}</span>
+                    <span className="week-meta">
+                      {w.totalWeight > 0
+                        ? `${w.totalWeight}% of grade due`
+                        : `${w.tasks.length} task${w.tasks.length > 1 ? "s" : ""}`}
+                    </span>
+                  </div>
+                  <ul className="week-tasks">
+                    {w.tasks.map((t) => (
+                      <li key={t.id}>
+                        {t.course && <span className="wk-course">{t.course}</span>}
+                        {t.title}
+                        {t.weight != null && <span className="wk-weight"> · {t.weight}%</span>}
+                        <span className="wk-date"> · {t.deadline}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
+    </div>
+  );
+}
+
+export default App;
