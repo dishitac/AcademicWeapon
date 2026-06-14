@@ -254,8 +254,91 @@
 }
 .wk-weight, .wk-date { color: var(--text); }
 
+/* ---------- Semester timeline ---------- */
+.timeline { display: flex; flex-direction: column; gap: 6px; }
+
+.tl-axis {
+  position: relative;
+  height: 16px;
+  margin-left: 170px;     /* must match .tl-label width so ticks align with tracks */
+  margin-bottom: 2px;
+}
+.tl-month {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .03em;
+  color: var(--text);
+}
+
+.tl-row { display: flex; align-items: center; }
+.tl-label {
+  flex: 0 0 170px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 12px;
+  font-size: 13px;
+  color: var(--text-h);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.tl-title { overflow: hidden; text-overflow: ellipsis; }
+
+.tl-track {
+  position: relative;
+  flex: 1;
+  height: 26px;
+  background: var(--social-bg);
+  border-radius: 7px;
+}
+.tl-grid {
+  position: absolute;
+  top: 0; bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+.tl-bar {
+  position: absolute;
+  top: 5px;
+  height: 16px;
+  min-width: 10px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 55%, transparent), var(--accent));
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+.tl-due {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+  margin-right: -4px;
+}
+
+.tl-legend {
+  margin-top: 12px;
+  font-size: 12px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+.tl-swatch {
+  display: inline-block;
+  width: 24px; height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--accent) 55%, transparent), var(--accent));
+}
+
 @media (max-width: 640px) {
   .topbar { padding: 14px 16px; }
   .container { padding: 18px 12px 48px; }
   .card { padding: 16px; }
+  .tl-axis { margin-left: 110px; }
+  .tl-label { flex-basis: 110px; font-size: 12px; }
 }

@@ -3,6 +3,7 @@ import "./App.css";
 import { downloadFile, tasksToCSV, tasksToICS, type Task } from "./lib/exports";
 import { scheduleTasks } from "./lib/schedule";
 import { buildWorkload } from "./lib/workload";
+import { buildTimeline } from "./lib/timeline";
 
 type HealthResponse = { status: string };
 
@@ -114,6 +115,7 @@ function App() {
   // between renders so we don't rebuild it on every keystroke elsewhere).
   const workload = useMemo(() => buildWorkload(tasks), [tasks]);
   const crunchCount = workload.filter((w) => w.level === "crunch").length;
+  const timeline = useMemo(() => buildTimeline(tasks), [tasks]);
 
   return (
     <div className="app">
@@ -229,38 +231,50 @@ function App() {
           )}
         </section>
 
-        {workload.length > 0 && (
+        {!timeline.empty && (
           <section className="card">
             <div className="card-head">
-              <h2>Workload</h2>
+              <h2>Semester timeline</h2>
               {crunchCount > 0 && (
                 <span className="warn-chip">⚠️ {crunchCount} crunch week{crunchCount > 1 ? "s" : ""}</span>
               )}
             </div>
-            <div className="weeks">
-              {workload.map((w) => (
-                <div key={w.weekStart} className={`week week-${w.level}`}>
-                  <div className="week-head">
-                    <span className="week-label">{w.label}</span>
-                    <span className="week-meta">
-                      {w.totalWeight > 0
-                        ? `${w.totalWeight}% of grade due`
-                        : `${w.tasks.length} task${w.tasks.length > 1 ? "s" : ""}`}
-                    </span>
+
+            <div className="timeline">
+              {/* Month tick labels across the top, positioned by percentage */}
+              <div className="tl-axis">
+                {timeline.months.map((m, i) => (
+                  <span key={i} className="tl-month" style={{ left: `${m.leftPct}%` }}>{m.label}</span>
+                ))}
+              </div>
+
+              {timeline.bars.map((b) => (
+                <div key={b.id} className="tl-row">
+                  <div className="tl-label" title={`${b.course} ${b.title}`}>
+                    {b.course && <span className="wk-course">{b.course}</span>}
+                    <span className="tl-title">{b.title}</span>
                   </div>
-                  <ul className="week-tasks">
-                    {w.tasks.map((t) => (
-                      <li key={t.id}>
-                        {t.course && <span className="wk-course">{t.course}</span>}
-                        {t.title}
-                        {t.weight != null && <span className="wk-weight"> · {t.weight}%</span>}
-                        <span className="wk-date"> · {t.deadline}</span>
-                      </li>
+                  <div className="tl-track">
+                    {/* faint vertical gridlines at month boundaries */}
+                    {timeline.months.map((m, i) => (
+                      <span key={i} className="tl-grid" style={{ left: `${m.leftPct}%` }} />
                     ))}
-                  </ul>
+                    <div
+                      className="tl-bar"
+                      style={{ left: `${b.leftPct}%`, width: `${b.widthPct}%` }}
+                      title={`Start ${b.startLabel} → Due ${b.dueLabel}${b.weight != null ? ` (${b.weight}%)` : ""}`}
+                    >
+                      <span className="tl-due" />
+                    </div>
+                  </div>
                 </div>
               ))}
             </div>
+
+            <p className="tl-legend">
+              <span className="tl-swatch" /> suggested work period · ● due date — click
+              “Suggest start dates” above to use exact scheduled starts
+            </p>
           </section>
         )}
       </main>
